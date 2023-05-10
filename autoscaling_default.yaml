@@ -1,0 +1,89 @@
+Resources:
+         
+
+
+       
+
+  MyLaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        ImageId: ami-00874d747dde814fa
+        KeyName: demo
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            apt-get update
+            apt-get install -y apache2
+        SecurityGroupIds:
+          - !Ref MySecurityGroup
+  MyAutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      AutoScalingGroupName: MyAutoScalingGroup
+      MinSize: '1'
+      MaxSize: '5'
+      DesiredCapacity: '1'
+      # VPCZoneIdentifier:
+      #   - !Ref MySubnetA
+      #   - !Ref MySubnetB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref MyTargetGroup      
+      
+
+  
+
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow HTTP, SSH, and custom app port'
+      # VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '3000'
+          ToPort: '3000'
+          CidrIp: '0.0.0.0/0'
+
+  MyLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: my-load-balancer
+      Scheme: internet-facing
+      Type: application
+      # Subnets:
+      #   - !Ref MySubnetA
+      #   - !Ref MySubnetB
+      SecurityGroups:
+        - !Ref MySecurityGroup
+
+  MyTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: my-target-group
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      # VpcId: !Ref MyVpc
+
+  MyListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref MyLoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+              
